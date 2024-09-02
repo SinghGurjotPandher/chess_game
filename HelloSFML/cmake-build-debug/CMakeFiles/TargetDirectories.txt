@@ -1,0 +1,3 @@
+/Users/gurjotsinghpandher/Desktop/ChessGame/HelloSFML/cmake-build-debug/CMakeFiles/HelloSFML.dir
+/Users/gurjotsinghpandher/Desktop/ChessGame/HelloSFML/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/gurjotsinghpandher/Desktop/ChessGame/HelloSFML/cmake-build-debug/CMakeFiles/rebuild_cache.dir

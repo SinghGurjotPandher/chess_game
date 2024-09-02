@@ -1,0 +1,3 @@
+/Users/gurjotsinghpandher/Desktop/ChessGame/ChessServer/cmake-build-debug/CMakeFiles/ChessServer.dir
+/Users/gurjotsinghpandher/Desktop/ChessGame/ChessServer/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/gurjotsinghpandher/Desktop/ChessGame/ChessServer/cmake-build-debug/CMakeFiles/rebuild_cache.dir
