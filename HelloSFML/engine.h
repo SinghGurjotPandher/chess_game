@@ -34,6 +34,12 @@ public:
     void resetBoard();
     void populateBoard(int assigned_player);
 
+    // for castling (which is only allowed if move countes for king and rook are 0.
+    int rookMoveCountP2 = 0;
+    int kingMoveCountP2 = 0;
+    bool shortSideCastle = false; // updated when player is assigned in main.cpp
+    bool longSideCastle = false; // updated when player is assigned in main.cpp
+
     void setRook(int player, int row, int column);
     void setKnight(int player, int row, int column);
     void setBishop(int player, int row, int column);
@@ -66,6 +72,8 @@ public:
     bool isValidKnightMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row);
     bool isValidPawnMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row);
     bool isValidPawnEnPassantMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row);
+
+    bool isValidCastleMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row);
     bool isValidKingMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row);
 
     bool isKingCheck();
@@ -74,6 +82,8 @@ public:
     void getLegalBishopMoves(std::vector<Legal_Move>& legal_moves, int row, int column);
     void getLegalKingMoves(std::vector<Legal_Move>& legal_moves, int row, int column);
     void getLegalPawnMoves(std::vector<Legal_Move>& legal_moves, int row, int column);
+    bool castleMoveValid();
+    // and en passant
     std::vector<Legal_Move> getLegalMoves();
 
     void revertGameState(Temp_Game_State updating_to);

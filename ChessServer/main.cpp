@@ -48,7 +48,7 @@ int main() {
                 }
             }
 
-            // Player 1
+            // Player 2
             for (int i = 0; i < player2.size(); ++i) {
                 if (selector.isReady(*player2[i])) {
                     sf::Packet chess_move;

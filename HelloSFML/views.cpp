@@ -177,8 +177,8 @@ void ManageView::drawPawnPromotion() {
 
 void ManageView::drawWinMessage(sf::String message, sf::Color background) {
     sf::RectangleShape cover;
-    cover.setSize(sf::Vector2f(700,100));
-    cover.setPosition(sf::Vector2f(0,700));
+    cover.setSize(sf::Vector2f(700,800));
+    cover.setPosition(sf::Vector2f(0,0));
     cover.setFillColor(background);
     window.draw(cover);
 
@@ -186,7 +186,7 @@ void ManageView::drawWinMessage(sf::String message, sf::Color background) {
     winMessage.setCharacterSize(50);;
     winMessage.setStyle(sf::Text::Bold);
     winMessage.setFillColor(sf::Color::White);
-    winMessage.setPosition(100, 700);
+    winMessage.setPosition(350, 350);
 
     window.draw(winMessage);
 }
@@ -256,7 +256,8 @@ bool ManageView::selectPiece(int player, Bitboard_Point bitboard_point) {
 void ManageView::movePiece(Bitboard_Point bitboard_point, sf::TcpSocket& socket, int& winnerAnnounced) {
     bool move_valid;
     std::string pawnPromotingTo;
-    bool enPassant;
+    bool enPassant = false;
+    bool isCastle = false;
 
     if ((selected.element == "Rook" &&
         board.isValidRookMove(selected.point.column, selected.point.row, bitboard_point.column, bitboard_point.row)) ||
@@ -272,6 +273,13 @@ void ManageView::movePiece(Bitboard_Point bitboard_point, sf::TcpSocket& socket,
     else if (selected.element == "King" &&
         board.isValidKingMove(selected.point.column, selected.point.row, bitboard_point.column, bitboard_point.row))
         move_valid = true;
+
+    // handle castling here
+    else if (selected.element == "King" && kingInCheck == false &&
+        board.isValidCastleMove(selected.point.column, selected.point.row, bitboard_point.column, bitboard_point.row)) {
+        isCastle = true;
+        move_valid = true;
+    }
 
     else if (selected.element == "Pawn" &&
         board.isValidPawnMove(selected.point.column, selected.point.row, bitboard_point.column, bitboard_point.row)) {
@@ -317,6 +325,10 @@ void ManageView::movePiece(Bitboard_Point bitboard_point, sf::TcpSocket& socket,
             board.removeSpecialPawn(selected.point.row, bitboard_point.column); // update our tracking of special pawns
             board.removePawn(1, selected.point.row, bitboard_point.column);
         }
+        if (isCastle) {
+            addRemoveBoardPieces("Remove", "Rook", 8, 1, 2, 1);
+            addRemoveBoardPieces("Add", "Rook", 8, bitboard_point.column+1, 2, 1);
+        }
         bool putsKingInCheck = board.isKingCheck();
 
         if (kingInCheck) {
@@ -352,6 +364,23 @@ void ManageView::movePiece(Bitboard_Point bitboard_point, sf::TcpSocket& socket,
         if (enPassant) {
             moveMessage += " En_Passant " + removing_row + " " + adding_col;
         }
+
+        if (isCastle) {
+            // move the rook
+            moveMessage += " Castle";
+        }
+
+
+        // for castling to ensure no king or rook piece has taken a move before
+        if (removing_element == adding_element) {
+            if (adding_element == "Rook") {
+                ++board.rookMoveCountP2;
+            }
+            else if (adding_element == "King") {
+                ++board.kingMoveCountP2;
+            }
+        }
+
         sf::Packet info;
         info << moveMessage;
         socket.send(info);
@@ -392,6 +421,7 @@ void ManageView::mouseButtonPress(Bitboard_Point bitboard_point, int player, sf:
 }
 
 void ManageView::addRemoveBoardPieces(std::string operation, std::string piece, int row, int column, int player, int removing_player) {
+
     if (operation == "Remove") {
         if (piece == "Rook") board.removeRook(player, row, column);
         else if (piece == "Knight") board.removeKnight(player, row, column);
@@ -449,7 +479,15 @@ void ManageView::processAddRemoveServerMessage(std::string serverMessage, int pl
     addRemoveBoardPieces(second_part[0], second_part[1], std::stoi(second_part[2]), std::stoi(second_part[3]), player, removing_player);
 
     // handling special case of en passant
-    if (messageParts.size() > 8) {
-        board.removePawn(removing_player, std::stoi(messageParts[9]), std::stoi(messageParts[10]));
+    if (messageParts.size() > 7) {
+        // en passant
+        if (messageParts[8] == "En_Passant") {
+            board.removePawn(removing_player, std::stoi(messageParts[9]), std::stoi(messageParts[10]));
+        }
+        // castling
+        if (messageParts[8] == "Castle") {
+            board.removeRook(player, 1, 8);
+            board.setRook(player, 1, std::stoi(second_part[3])-1);
+        }
     }
 }

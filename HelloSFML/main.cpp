@@ -19,15 +19,21 @@ void connect(int port) {
     socket.connect(ip, port);
 }
 
-void assignPlayerView(ManageView& view, int player) {
+void assignPlayerView(ManageView& view, ManageBoardEngine& board,  int player) {
+    // assign type of castle to player here -->
+    // short_side for player 2 and long side for player 1
     view.assigned_player = player;
     if (player == 2) {
         view.myPieceColor = sf::Color(255,255,255);
         view.opponentPieceColor = sf::Color(96,96,96);
+        board.shortSideCastle = true;
+        board.longSideCastle = false;
     }
     else {
         view.myPieceColor = sf::Color(96,96,96);
         view.opponentPieceColor = sf::Color(255,255,255);
+        board.longSideCastle = true;
+        board.shortSideCastle = false;
     }
 }
 
@@ -49,7 +55,7 @@ int main() {
 
     ManageBoardEngine board;// by defalt this will assign you to player 2
     ManageView view{window, board};
-    assignPlayerView(view, 2);
+    assignPlayerView(view, board, 2);
 
     int count_first = 0;
     while (window.isOpen()) {
@@ -70,7 +76,7 @@ int main() {
                 if (set_player == "PLAYER 1" and count_first == 0) {
                     // update to player 1's board pieces because we now know that we are player 1
                     board.populateBoard(1);
-                    assignPlayerView(view, 1);
+                    assignPlayerView(view, board, 1);
 
                     view.drawMessage("Wait for player to join & move piece");
                     view.fillBoardTexture();

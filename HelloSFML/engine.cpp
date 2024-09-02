@@ -1,5 +1,7 @@
 #include "engine.h"
 
+#include <future>
+
 
 ManageBoardEngine::ManageBoardEngine() {
     populateBoard(2); // you might be reassigned a different player after getting message from the server
@@ -320,9 +322,52 @@ bool ManageBoardEngine::isValidPawnEnPassantMove(int moving_from_col, int moving
     return false;
 }
 
+// handle castling in a separate function so you can isValidKingMove (for step-by-step move) and not have to worry
+// about simulating king moves
+
+bool ManageBoardEngine::isValidCastleMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row) {
+    long long int anyPiece = p1Rooks | p1Knights | p1Bishops | p1King | p1Queen | p1Pawns |
+        p2Rooks | p2Knights | p2Bishops | p2King | p2Queen | p2Pawns;
+    if (kingMoveCountP2 == 0 and rookMoveCountP2 == 0) {
+        if (shortSideCastle) {
+            // short side castle
+            if (moving_to_col == 2) {
+                for (int start = moving_from_col-1; start >= moving_to_col; --start) {
+                    if (!((createCheck(moving_to_row, start) & anyPiece) == 0 &&
+                        isValidKingMove(start+1, moving_from_row, start, moving_to_row))) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        }
+        else if (longSideCastle) {
+            // long side castle
+            if (moving_to_col == 3) {
+                for (int start = moving_from_col-1; start >= moving_to_col; --start) {
+                    if (!((createCheck(moving_to_row, start) & anyPiece) == 0 &&
+                        isValidKingMove(start+1, moving_from_row, start, moving_to_row))) {
+                        return false;
+                    }
+                }
+                // check here --> no piece should be existing at col 2 row 8
+                if ((createCheck(8, 2) & anyPiece) != 0) {
+                    return false;
+                }
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+
 
 bool ManageBoardEngine::isValidKingMove(int moving_from_col, int moving_from_row, int moving_to_col, int moving_to_row) {
+    // only used by player 2 because other player's king cannot put our king in check and isKingCheck
+    // is the only function where we switch player roles
     Temp_Game_State startGameState = getCurrentGameState();
+
     int colDif = std::abs(moving_to_col - moving_from_col);
     int rowDif = std::abs(moving_to_row - moving_from_row);
 
@@ -361,6 +406,8 @@ bool ManageBoardEngine::isValidKingMove(int moving_from_col, int moving_from_row
 
 
 bool ManageBoardEngine::isKingCheck() {
+    // castling move considered in the other function since it should be part of checkmate but only
+    // stalemate according to chess rules
     int kingRow;
     int kingCol;
 
@@ -476,40 +523,40 @@ void ManageBoardEngine::getLegalBishopMoves(std::vector<Legal_Move> &legal_moves
         }
     }
 }
-// any move that leaves your king in check is not allowed... so you need to check all moves :(
+
 
 void ManageBoardEngine::getLegalKingMoves(std::vector<Legal_Move> &legal_moves, int row, int column) {
     long long int piecesP1 = p1Rooks | p1Knights | p1Bishops | p1King | p1Queen | p1Pawns;
 
-    bool minusOneRow = (row-1 >= 1);
-    bool addOneRow = (row+1 <= 8);
+    bool minusOneRow = row-1 >= 1;
+    bool addOneRow = row+1 <= 8;
 
-    bool minusOneCol = (column-1 >= 1);
-    bool addOneCol = (column+1 <= 8);
+    bool minusOneCol = column-1 >= 1;
+    bool addOneCol = column+1 <= 8;
 
-    if (addOneRow && addOneCol && (createCheck(row+1, column+1) & piecesP1) == 0 && isValidKingMove(column, row, column+1, row+1)) {
+    if (addOneRow && addOneCol && (createCheck(row+1, column+1) & piecesP1) == 0 && isValidKingMove(column, row, column+1, row+1) ) {
         legal_moves.push_back(Legal_Move{"King", row, column, row+1, column+1});
     }
     if (addOneRow && (createCheck(row+1, column) & piecesP1) == 0 && isValidKingMove(column, row, column, row+1)) {
-        legal_moves.push_back(Legal_Move{"King", column, row+1, column});
+        legal_moves.push_back(Legal_Move{"King", row, column, row+1, column});
     }
-    if (addOneRow && (createCheck(row+1, column-1) & piecesP1) == 0 && minusOneCol && isValidKingMove(column, row, column-1, row+1)) {
-        legal_moves.push_back(Legal_Move{"King", column, row+1, column-1});
+    if (addOneRow && minusOneCol && (createCheck(row+1, column-1) & piecesP1) == 0 && isValidKingMove(column, row, column-1, row+1)) {
+        legal_moves.push_back(Legal_Move{"King", row, column, row+1, column-1});
     }
     if (minusOneCol && (createCheck(row, column-1) & piecesP1) == 0 && isValidKingMove(column, row, column-1, row)) {
-        legal_moves.push_back(Legal_Move{"King",  column, row, column-1});
+        legal_moves.push_back(Legal_Move{"King",  row, column, row, column-1});
     }
     if (addOneCol && (createCheck(row, column+1) & piecesP1) == 0 && isValidKingMove(column, row, column+1, row)) {
-        legal_moves.push_back(Legal_Move{"King", column, row, column+1});
+        legal_moves.push_back(Legal_Move{"King", row, column, row, column+1});
     }
-    if (minusOneRow && (createCheck(row-1, column-1) & piecesP1) == 0 && minusOneCol && isValidKingMove(column, row, column-1, row-1)) {
-        legal_moves.push_back(Legal_Move{"King",  column, row-1, column-1});
+    if (minusOneRow && minusOneCol && (createCheck(row-1, column-1) & piecesP1) == 0 && isValidKingMove(column, row, column-1, row-1)) {
+        legal_moves.push_back(Legal_Move{"King",  row, column, row-1, column-1});
     }
-    if (minusOneRow && (createCheck(row-1, column+1) & piecesP1) == 0 && addOneCol && isValidKingMove(column, row, column+1, row-1)) {
-        legal_moves.push_back(Legal_Move{"King", column, row-1, column+1});
+    if (minusOneRow && addOneCol && (createCheck(row-1, column+1) & piecesP1) == 0 && isValidKingMove(column, row, column+1, row-1)) {
+        legal_moves.push_back(Legal_Move{"King", row, column, row-1, column+1});
     }
     if (minusOneRow && (createCheck(row-1, column) & piecesP1) == 0 && isValidKingMove(column, row, column, row-1)) {
-        legal_moves.push_back(Legal_Move{"King",  column, row-1, column});
+        legal_moves.push_back(Legal_Move{"King",  row, column, row-1, column});
     }
 }
 
@@ -534,17 +581,36 @@ void ManageBoardEngine::getLegalPawnMoves(std::vector<Legal_Move> &legal_moves, 
         legal_moves.push_back(Legal_Move{"Pawn",row, column, row-2, column});
     }
 
+
+    // considering En Passant possibilities below
+
     // move one right diagonal
-    if (minusOneRow && (createCheck(row-1, column-1) & piecesP2) == 0 && minusOneCol && (isValidPawnMove(column, row, column-1, row-1) ||
-        isValidPawnEnPassantMove(column, row, column-1, row-1))) {
-        legal_moves.push_back(Legal_Move{"Pawn",row, column, row-1, column-1});
+    if (minusOneRow && (createCheck(row-1, column-1) & piecesP2) == 0 && minusOneCol) {
+        if (isValidPawnEnPassantMove(column, row, column-1, row-1)) {
+            legal_moves.push_back(Legal_Move{"Pawn_En_Passant_Left",row, column, row-1, column-1});
+        }
+        else if (isValidPawnMove(column, row, column-1, row-1)) {
+            legal_moves.push_back(Legal_Move{"Pawn",row, column, row-1, column-1});
+        }
     }
 
     // move one left diagonal
-    if (minusOneRow && (createCheck(row-1, column+1) & piecesP2) == 0 && addOneCol && (isValidPawnMove(column, row, column+1,row-1) ||
-        isValidPawnEnPassantMove(column, row, column+1, row-1))) {
-        legal_moves.push_back(Legal_Move{"Pawn",row, column, row-1, column+1});
+    if (minusOneRow && (createCheck(row-1, column+1) & piecesP2) == 0 && addOneCol) {
+        if (isValidPawnEnPassantMove(column, row, column+1, row-1)) {
+            legal_moves.push_back(Legal_Move{"Pawn_En_Passant_Right",row, column, row-1, column+1});
+        }
+        else if (isValidPawnMove(column, row, column+1,row-1)) {
+            legal_moves.push_back(Legal_Move{"Pawn",row, column, row-1, column+1});
+        }
     }
+}
+
+bool ManageBoardEngine::castleMoveValid() {
+    bool castleValid = false;
+    if ((shortSideCastle and isValidCastleMove(4, 8, 2, 8)) ||
+        (longSideCastle and isValidCastleMove(5, 8, 3, 8))
+    ) castleValid = true;
+    return castleValid;
 }
 
 
@@ -593,7 +659,8 @@ bool ManageBoardEngine::wayOutCheck() {
 
     bool wayOutCheckPossible = false;
     std::vector<Legal_Move> legalMoves = getLegalMoves();
-    std::cout << "Legal Moves Available: " << legalMoves.size() << std::endl;
+    //std::cout << "Legal Moves Available: " << legalMoves.size() << std::endl;
+    /*
     for (std::vector<Legal_Move>::iterator p = legalMoves.begin(); p != legalMoves.end(); ++p) {
         std::cout << "Piece:           " << p->piece << std::endl;
         std::cout << "  Start Column:  " << p->start_column << std::endl;
@@ -601,7 +668,7 @@ bool ManageBoardEngine::wayOutCheck() {
         std::cout << "  End Column:    " << p->end_column << std::endl;
         std::cout << "  End Row:       " << p->end_row << std::endl;
     }
-
+    */
     // try all possible moves and see if any can remove the game out of check (simulating changes)
     for (std::vector<Legal_Move>::iterator p = legalMoves.begin(); p != legalMoves.end(); ++p) {
         if (isKingCheck()) {
@@ -629,6 +696,16 @@ bool ManageBoardEngine::wayOutCheck() {
                 removePawn(player, p->start_row, p->start_column);
                 setPawn(player, p->end_row, p->end_column);
             }
+            else if (p->piece == "Pawn_En_Passant_Left") {
+                removePawn(player, p->start_row, p->start_column);
+                setPawn(player, p->end_row, p->end_column);
+                removePawn(opponent, p->start_row, p->start_column + 1);
+            }
+            else if (p->piece == "Pawn_En_Passant_Right") {
+                removePawn(player, p->start_row, p->start_column);
+                setPawn(player, p->end_row, p->end_column);
+                removePawn(opponent, p->start_row, p->start_column - 1);
+            }
 
             removeRook(opponent, p->end_row, p->end_column);
             removeKnight(opponent, p->end_row, p->end_column);
@@ -641,6 +718,8 @@ bool ManageBoardEngine::wayOutCheck() {
                 revertGameState(startGameState);
             }
             else {
+                std::cout << " Removed King Out Check " << std::endl;
+                std::cout << " Piece " << p->piece << " start row: " << p->start_row << " start column: " << p->start_column << " to end row: " << p->end_row << " end column: " << p->end_column << std::endl;
                 wayOutCheckPossible = true;
                 break;
             }
@@ -661,7 +740,7 @@ bool ManageBoardEngine::isCheckmate() {
 
 
 bool ManageBoardEngine::isStalemate() {
-    if (getLegalMoves().empty() and !isKingCheck()) return true;
+    if (getLegalMoves().empty() and !isKingCheck() and castleMoveValid() == false) return true;
     return false;
 }
 
